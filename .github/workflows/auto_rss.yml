@@ -24,7 +24,17 @@ jobs:
       - name: Installer les dépendances
         run: |
           python -m pip install --upgrade pip
-          pip install apify-client
+          pip install apify-client requests
+
+      - name: Charger l'historique Telegram depuis le Cache GitHub
+        uses: actions/cache@v4
+        with:
+          path: envoyees.json
+          # La clé de cache inclut l'ID du run pour forcer la mise à jour à la fin (save-always)
+          key: telegram-history-${{ github.run_id }}
+          # restore-keys permet de récupérer le cache le plus récent de la session précédente
+          restore-keys: |
+            telegram-history-
 
       - name: Générer le fichier de clés Apify JSON depuis le Secret
         run: |
@@ -40,9 +50,11 @@ jobs:
       - name: 2. Envoyer les alertes sur Telegram
         run: python telegram_bot.py
 
-      - name: 3. Sauvegarder les fichiers XML et l'historique sur le dépôt
+      - name: 3. Sauvegarder uniquement les fichiers XML sur le dépôt
         run: |
           git config --local user.email "github-actions[bot]@://github.com"
           git config --local user.name "github-actions[bot]"
-          git add rss/*.xml envoyees.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Flux RSS et historique Telegram mis à jour" && git push)
+          
+          # On indexe UNIQUEMENT le dossier rss. Le fichier envoyees.json est ignoré.
+          git add rss/*.xml
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Flux RSS mis à jour automatiquement" && git push)
