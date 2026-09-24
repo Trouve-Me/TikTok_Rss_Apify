@@ -9,7 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # CORRECTION : Donne explicitement les droits d'écriture au script pour le Git Push
     permissions:
       contents: write
 
@@ -27,17 +26,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install apify-client
 
-      - name: Générer le fichier de clés JSON depuis le Secret
+      - name: Générer le fichier de clés Apify JSON depuis le Secret
         run: |
           echo '${{ secrets.APIFY_KEYS_JSON }}' > cles_apify.json
 
-      - name: Éxecuter le script Python
+      - name: Générer le fichier de configuration Telegram depuis le Secret
+        run: |
+          echo '${{ secrets.TELEGRAM_CONFIG_JSON }}' > config_telegram.json
+
+      - name: 1. Éxecuter l'extraction TikTok
         run: python main.py
 
-      - name: Sauvegarder et pousser les fichiers XML sur le dépôt
+      - name: 2. Envoyer les alertes sur Telegram
+        run: python telegram_bot.py
+
+      - name: 3. Sauvegarder les fichiers XML et l'historique sur le dépôt
         run: |
-          # CORRECTION : Email officiel propre du bot GitHub Actions
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.email "github-actions[bot]@://github.com"
           git config --local user.name "github-actions[bot]"
-          git add rss/*.xml
-          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Flux RSS mis à jour automatiquement" && git push)
+          git add rss/*.xml envoyees.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Flux RSS et historique Telegram mis à jour" && git push)
