@@ -95,6 +95,8 @@ def generer_rss_pour_createur(username, liste_cles):
             return
 
         # Construction du XML RSS
+        ET.register_namespace("media", "http://search.yahoo.com/mrss/")
+        
         rss = ET.Element("rss", version="2.0")
         channel = ET.SubElement(rss, "channel")
         ET.SubElement(channel, "title").text = f"TikTok RSS - {username}"
@@ -122,6 +124,7 @@ def generer_rss_pour_createur(username, liste_cles):
 
             if url_miniature:
                 ET.SubElement(item, "enclosure", {"url": url_miniature, "type": "image/jpeg"})
+                ET.SubElement(item, "{http://search.yahoo.com/mrss/}content", {"url": url_miniature, "medium": "image", "type": "image/jpeg"})
             else:
                 print(f"⚠️ Miniature introuvable dans videoMeta pour la vidéo.")
 
