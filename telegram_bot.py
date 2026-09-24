@@ -4,11 +4,26 @@ import xml.etree.ElementTree as ET
 import urllib.request
 import urllib.parse
 
-# 1. Configuration (Utilise les variables d'environnement sur GitHub)
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "VOTRE_TOKEN_TELEGRAM_LOCAL")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "VOTRE_CHAT_ID_LOCAL")
+# Configuration des fichiers
+CHEMIN_CONFIG = "config_telegram.json"
 DOSSIER_RSS = "rss"
 FICHIER_MEMOIRE = "envoyees.json"
+
+
+def charger_config_telegram():
+    """Charge les identifiants Telegram depuis le fichier JSON."""
+    if not os.path.exists(CHEMIN_CONFIG):
+        print(f"❌ ERREUR : Le fichier {CHEMIN_CONFIG} est introuvable.")
+        return None, None
+    try:
+        with open(CHEMIN_CONFIG, "r", encoding="utf-8") as f:
+            config = json.load(f)
+            token = config.get("telegram_token")
+            chat_id = config.get("telegram_chat_id")
+            return token, chat_id
+    except Exception as e:
+        print(f"❌ Erreur lors de la lecture de la config Telegram : {e}")
+        return None, None
 
 
 def charger_historique():
@@ -28,11 +43,11 @@ def sauvegarder_historique(historique):
         json.dump(list(historique), f, ensure_ascii=False, indent=2)
 
 
-def envoyer_message_telegram(texte):
+def envoyer_message_telegram(token, chat_id, texte):
     """Envoie un message texte simple via l'API Bot Telegram standard."""
-    url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
+    url = f"https://telegram.org{token}/sendMessage"
     donnees = urllib.parse.urlencode({
-        "chat_id": TELEGRAM_CHAT_ID,
+        "chat_id": chat_id,
         "text": texte,
         "parse_mode": "HTML"
     }).encode("utf-8")
@@ -47,6 +62,11 @@ def envoyer_message_telegram(texte):
 
 
 def verifier_et_notifier():
+    token, chat_id = charger_config_telegram()
+    if not token or not chat_id:
+        print("🚨 Configuration Telegram incomplète. Annulation de l'envoi.")
+        return
+
     if not os.path.exists(DOSSIER_RSS):
         print("📂 Aucun dossier RSS trouvé.")
         return
@@ -63,28 +83,24 @@ def verifier_et_notifier():
             try:
                 tree = ET.parse(chemin_xml)
                 root = tree.getroot()
-
-                # On récupère les <item> du flux XML (du plus ancien au plus récent si possible)
                 items = root.findall(".//item")
 
-                # On les inverse [::-1] pour envoyer la plus ancienne d'abord s'il y en a 2 nouvelles
+                # Inversion pour traiter la plus ancienne d'abord
                 for item in items[::-1]:
                     lien_video = item.find("link").text
                     titre_video = item.find("title").text
-                    description = item.find("description").text
 
                     # Si le lien n'est pas dans l'historique, c'est une nouveauté !
                     if lien_video not in historique:
                         print(f"✨ Nouvelle vidéo détectée pour @{createur} !")
 
-                        # Formatage du message Telegram
                         message = (
                             f"🎬 <b>Nouvelle vidéo de @{createur}</b>\n\n"
                             f"📝 {titre_video}\n\n"
                             f"🔗 <a href='{lien_video}'>Regarder sur TikTok</a>"
                         )
 
-                        if envoyer_message_telegram(message):
+                        if envoyer_message_telegram(token, chat_id, message):
                             historique.add(lien_video)
                             nouvelles_videos_detectees = True
 
@@ -98,6 +114,4 @@ def verifier_et_notifier():
 
 
 if __name__ == "__main__":
-    if TELEGRAM_TOKEN == "VOTRE_TOKEN_TELEGRAM_LOCAL" or TELEGRAM_CHAT_ID == "VOTRE_CHAT_ID_LOCAL":
-        print("⚠️ Mode local : Pensez à configurer vos accès Telegram pour tester.")
     verifier_et_notifier()
